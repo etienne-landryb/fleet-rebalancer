@@ -59,6 +59,7 @@ class ImpactResult:
 
 STARVING_THRESHOLD = 0.15
 SATURATED_THRESHOLD = 0.85
+MAX_ACTIVE_STATIONS = 500
 
 
 def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -118,6 +119,36 @@ def _classify_stations(
     return surplus, deficit
 
 
+def _limit_active_stations(
+    surplus: list[tuple[int, int]],
+    deficit: list[tuple[int, int]],
+    limit: int = MAX_ACTIVE_STATIONS,
+) -> tuple[list[tuple[int, int]], list[tuple[int, int]], set[int]]:
+    """Bound the quadratic routing problem for very large networks."""
+    candidates = surplus + deficit
+    if len(candidates) <= limit:
+        return surplus, deficit, set()
+
+    surplus_budget = min(len(surplus), limit // 2)
+    deficit_budget = min(len(deficit), limit // 2)
+    remaining = limit - surplus_budget - deficit_budget
+    if len(surplus) > surplus_budget:
+        surplus_budget += min(remaining, len(surplus) - surplus_budget)
+        remaining = limit - surplus_budget - deficit_budget
+    if len(deficit) > deficit_budget:
+        deficit_budget += min(remaining, len(deficit) - deficit_budget)
+
+    selected_surplus = sorted(surplus, key=lambda item: (-item[1], item[0]))[
+        :surplus_budget
+    ]
+    selected_deficit = sorted(deficit, key=lambda item: (-item[1], item[0]))[
+        :deficit_budget
+    ]
+    selected_indices = {index for index, _ in selected_surplus + selected_deficit}
+    skipped_indices = {index for index, _ in candidates} - selected_indices
+    return selected_surplus, selected_deficit, skipped_indices
+
+
 class Planner(ABC):
     @abstractmethod
     def solve(
@@ -140,10 +171,23 @@ class ORToolsPlanner(Planner):
         shift_budget_min: int,
     ) -> PlanResult:
         surplus, deficit = _classify_stations(stations)
+        surplus, deficit, skipped_indices = _limit_active_stations(surplus, deficit)
+
+        if skipped_indices:
+            logger.warning(
+                "Planner capped active stations at %d; skipped %d lower-priority stations",
+                MAX_ACTIVE_STATIONS,
+                len(skipped_indices),
+            )
 
         if not surplus and not deficit:
             logger.info("No imbalanced stations — nothing to plan")
-            return PlanResult(routes=[], feasible=True, objective_value=0)
+            return PlanResult(
+                routes=[],
+                feasible=True,
+                objective_value=0,
+                unserved_stations=[stations[i].station_id for i in skipped_indices],
+            )
 
         # Build the node list: depot + surplus stations + deficit stations
         active_indices = []
@@ -167,7 +211,12 @@ class ORToolsPlanner(Planner):
         n_nodes = len(demands)
 
         if n_nodes <= 1:
-            return PlanResult(routes=[], feasible=True, objective_value=0)
+            return PlanResult(
+                routes=[],
+                feasible=True,
+                objective_value=0,
+                unserved_stations=[stations[i].station_id for i in skipped_indices],
+            )
 
         # Build a distance matrix for only the active nodes + depot
         active_stations = [stations[i] for i in active_indices]
@@ -244,7 +293,8 @@ class ORToolsPlanner(Planner):
                 routes=[],
                 feasible=False,
                 objective_value=0,
-                unserved_stations=[stations[i].station_id for i in active_indices],
+                unserved_stations=[stations[i].station_id for i in active_indices]
+                + [stations[i].station_id for i in skipped_indices],
             )
 
         routes = []
@@ -305,7 +355,8 @@ class ORToolsPlanner(Planner):
             routes=routes,
             feasible=True,
             objective_value=solution.ObjectiveValue(),
-            unserved_stations=list(unserved),
+            unserved_stations=list(unserved)
+            + [stations[i].station_id for i in skipped_indices],
         )
 
         total_moved = sum(r.total_pickups for r in routes)
@@ -313,7 +364,7 @@ class ORToolsPlanner(Planner):
             "Plan: %d routes, %d bikes moved, %d unserved stations",
             len(routes),
             total_moved,
-            len(unserved),
+            len(result.unserved_stations),
         )
         return result
 

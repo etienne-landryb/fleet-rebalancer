@@ -5,6 +5,7 @@ from rebalancer.optim.planner import (
     Route,
     Station,
     Stop,
+    _limit_active_stations,
     _classify_stations,
     _haversine_km,
     simulate_impact,
@@ -118,6 +119,19 @@ class TestORToolsPlanner:
         )
         assert result.feasible
         assert len(result.routes) <= 1
+
+    def test_large_active_set_is_bounded_by_priority(self):
+        surplus = [(index, index + 1) for index in range(400)]
+        deficit = [(index + 400, index + 1) for index in range(400)]
+
+        selected_surplus, selected_deficit, skipped = _limit_active_stations(
+            surplus, deficit, limit=100
+        )
+
+        assert len(selected_surplus) + len(selected_deficit) == 100
+        assert selected_surplus[0] == (399, 400)
+        assert selected_deficit[0] == (799, 400)
+        assert len(skipped) == 700
 
 
 class TestSimulateImpact:
