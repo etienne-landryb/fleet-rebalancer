@@ -5,9 +5,9 @@ from rebalancer.optim.planner import (
     Route,
     Station,
     Stop,
-    _limit_active_stations,
     _classify_stations,
     _haversine_km,
+    _limit_active_stations,
     simulate_impact,
 )
 
