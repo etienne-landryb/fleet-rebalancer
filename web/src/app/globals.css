@@ -1,0 +1,185 @@
+@import "tailwindcss";
+
+/* ===== Three-theme design system ===== */
+
+/* Dark theme (default) — deep navy glassmorphism */
+[data-theme="dark"] {
+  --bg: #060912;
+  --bg2: #0a0f1e;
+  --glass: rgba(13, 21, 42, 0.72);
+  --glass2: rgba(18, 28, 52, 0.60);
+  --blur: 16px;
+  --border: rgba(96, 165, 250, 0.10);
+  --border2: rgba(96, 165, 250, 0.20);
+  --text: #e8f0fe;
+  --text2: #7a9cc8;
+  --text3: #2d4a6e;
+  --green: #22d3a0;
+  --green-d: rgba(34, 211, 160, 0.12);
+  --amber: #fbbf24;
+  --amber-d: rgba(251, 191, 36, 0.12);
+  --red: #f87171;
+  --red-d: rgba(248, 113, 113, 0.12);
+  --blue: #60a5fa;
+  --blue-d: rgba(96, 165, 250, 0.12);
+  --purple: #a78bfa;
+  --purple-d: rgba(167, 139, 250, 0.12);
+  --shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 1px 0 rgba(255, 255, 255, 0.03) inset;
+  --nm-light: rgba(255, 255, 255, 0.03);
+  --nm-dark: rgba(0, 0, 0, 0.5);
+  --grad-btn: linear-gradient(135deg, #2563eb, #7c3aed);
+}
+
+/* Light theme — frosted white glassmorphism */
+[data-theme="light"] {
+  --bg: #f0f4ff;
+  --bg2: #e8eeff;
+  --glass: rgba(255, 255, 255, 0.70);
+  --glass2: rgba(240, 245, 255, 0.60);
+  --blur: 16px;
+  --border: rgba(37, 99, 235, 0.12);
+  --border2: rgba(37, 99, 235, 0.22);
+  --text: #0f172a;
+  --text2: #475569;
+  --text3: #94a3b8;
+  --green: #059669;
+  --green-d: rgba(5, 150, 105, 0.10);
+  --amber: #d97706;
+  --amber-d: rgba(217, 119, 6, 0.10);
+  --red: #dc2626;
+  --red-d: rgba(220, 38, 38, 0.10);
+  --blue: #2563eb;
+  --blue-d: rgba(37, 99, 235, 0.10);
+  --purple: #7c3aed;
+  --purple-d: rgba(124, 58, 237, 0.10);
+  --shadow: 0 8px 32px rgba(37, 99, 235, 0.10), 0 1px 0 rgba(255, 255, 255, 0.8) inset;
+  --nm-light: rgba(255, 255, 255, 0.9);
+  --nm-dark: rgba(37, 99, 235, 0.15);
+  --grad-btn: linear-gradient(135deg, #2563eb, #7c3aed);
+}
+
+/* System theme — deep indigo glassmorphism */
+[data-theme="system"] {
+  --bg: #0e1420;
+  --bg2: #131c2e;
+  --glass: rgba(20, 30, 55, 0.75);
+  --glass2: rgba(25, 38, 65, 0.65);
+  --blur: 20px;
+  --border: rgba(139, 92, 246, 0.12);
+  --border2: rgba(139, 92, 246, 0.22);
+  --text: #f0ecff;
+  --text2: #8b7fc0;
+  --text3: #3a2f60;
+  --green: #34d399;
+  --green-d: rgba(52, 211, 153, 0.12);
+  --amber: #fcd34d;
+  --amber-d: rgba(252, 211, 77, 0.12);
+  --red: #fc8181;
+  --red-d: rgba(252, 129, 129, 0.12);
+  --blue: #818cf8;
+  --blue-d: rgba(129, 140, 248, 0.12);
+  --purple: #c084fc;
+  --purple-d: rgba(192, 132, 252, 0.12);
+  --shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 1px 0 rgba(139, 92, 246, 0.08) inset;
+  --nm-light: rgba(139, 92, 246, 0.06);
+  --nm-dark: rgba(0, 0, 0, 0.6);
+  --grad-btn: linear-gradient(135deg, #6366f1, #a855f7);
+}
+
+/* ===== Glass utility classes ===== */
+
+.glass {
+  background: var(--glass);
+  backdrop-filter: blur(var(--blur));
+  -webkit-backdrop-filter: blur(var(--blur));
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+
+.glass2 {
+  background: var(--glass2);
+  backdrop-filter: blur(calc(var(--blur) * 0.6));
+  -webkit-backdrop-filter: blur(calc(var(--blur) * 0.6));
+  border: 1px solid var(--border);
+}
+
+.neumorphic {
+  background: var(--bg2);
+  border-radius: 12px;
+  box-shadow:
+    4px 4px 10px var(--nm-dark),
+    -2px -2px 8px var(--nm-light);
+}
+
+/* ===== Base styles ===== */
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+  background-color: var(--bg);
+  color: var(--text);
+  transition: background-color 0.4s ease, color 0.4s ease;
+}
+
+#__next {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border2);
+  border-radius: 3px;
+}
+
+/* ===== Component classes ===== */
+
+.gradient-btn {
+  background: var(--grad-btn);
+  color: white;
+  border: none;
+  font-weight: 600;
+  transition: opacity 0.2s ease, transform 0.1s ease;
+}
+.gradient-btn:hover {
+  opacity: 0.9;
+}
+.gradient-btn:active {
+  transform: scale(0.98);
+}
+.gradient-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

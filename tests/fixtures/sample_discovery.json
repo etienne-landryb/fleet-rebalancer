@@ -1,0 +1,22 @@
+{
+  "last_updated": 1700000000,
+  "ttl": 300,
+  "data": {
+    "en": {
+      "feeds": [
+        {
+          "name": "station_information",
+          "url": "https://gbfs.example.com/station_information.json"
+        },
+        {
+          "name": "station_status",
+          "url": "https://gbfs.example.com/station_status.json"
+        },
+        {
+          "name": "system_information",
+          "url": "https://gbfs.example.com/system_information.json"
+        }
+      ]
+    }
+  }
+}

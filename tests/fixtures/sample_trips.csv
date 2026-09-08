@@ -1,0 +1,4 @@
+tripduration,starttime,stoptime,start_station_id,start_station_name,end_station_id,end_station_name,bikeid
+600,2023-10-01 08:00:00,2023-10-01 08:10:00,1,Station A,2,Station B,12345
+900,2023-10-01 08:05:00,2023-10-01 08:20:00,2,Station B,1,Station A,12346
+450,2023-10-01 09:00:00,2023-10-01 09:07:30,1,Station A,2,Station B,12347

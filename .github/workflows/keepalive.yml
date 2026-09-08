@@ -1,0 +1,21 @@
+name: Supabase Keepalive
+
+on:
+  schedule:
+    - cron: "0 6 */3 * *"  # Every 3 days at 06:00 UTC
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase to prevent 7-day inactivity pause
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "apikey: ${{ secrets.SUPABASE_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_KEY }}" \
+            "${{ secrets.SUPABASE_URL }}/rest/v1/stations?select=station_id&limit=1")
+          echo "Supabase responded with HTTP $STATUS"
+          if [ "$STATUS" -ge 400 ]; then
+            echo "::warning::Supabase ping returned HTTP $STATUS"
+          fi

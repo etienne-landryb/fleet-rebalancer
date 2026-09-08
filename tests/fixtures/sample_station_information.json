@@ -1,0 +1,22 @@
+{
+  "last_updated": 1700000000,
+  "ttl": 300,
+  "data": {
+    "stations": [
+      {
+        "station_id": "1",
+        "name": "Central Park S & 6 Ave",
+        "lat": 40.7649,
+        "lon": -73.9768,
+        "capacity": 20
+      },
+      {
+        "station_id": "2",
+        "name": "Broadway & E 14 St",
+        "lat": 40.7354,
+        "lon": -73.9907,
+        "capacity": 30
+      }
+    ]
+  }
+}

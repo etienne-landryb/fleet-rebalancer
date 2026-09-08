@@ -1,0 +1,35 @@
+name: rebalancer
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pip
+  - pandas
+  - numpy
+  - scikit-learn
+  - pip:
+      - pydantic-settings==2.15.0
+      - python-dotenv==1.2.3
+      - requests==2.34.2
+      - truststore==0.10.4
+      - supabase==2.31.0
+      - google-cloud-bigquery==3.44.0
+      - db-dtypes==1.7.1
+      - xgboost==3.2.0
+      - lightgbm==4.7.0
+      - shap==0.51.0
+      - matplotlib==3.10.3
+      - ortools==9.15.6755
+      - langgraph==1.2.11
+      - langgraph-checkpoint-postgres==3.1.2
+      - psycopg[binary]==3.2.9
+      - groq==1.7.0
+      - streamlit==1.62.0
+      - pydeck==0.9.3
+      - plotly==7.0.0
+      - pytest==9.1.1
+      - black==26.5.1
+      - isort==9.0.1
+      - ruff==0.16.5
+      - fastapi==0.115.0
+      - uvicorn==0.30.0
