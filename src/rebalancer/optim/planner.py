@@ -175,7 +175,8 @@ class ORToolsPlanner(Planner):
 
         if skipped_indices:
             logger.warning(
-                "Planner capped active stations at %d; skipped %d lower-priority stations",
+                "Planner capped active stations at %d; skipped %d "
+                "lower-priority stations",
                 MAX_ACTIVE_STATIONS,
                 len(skipped_indices),
             )
