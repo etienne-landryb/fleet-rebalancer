@@ -7,7 +7,7 @@ Last verified: 2026-09-08
 The application is live on an Azure for Students Linux VM and is reachable at:
 
 ```text
-http://20.240.135.196
+https://app.locafleet.de
 ```
 
 Verified during deployment:
@@ -18,7 +18,7 @@ Verified during deployment:
 - Docker Compose services API, web, and Caddy were running.
 - The browser UUID compatibility fix was compiled locally and deployed in the web image.
 
-The current IP-only deployment is HTTP. HTTPS requires a domain whose DNS A record points to the VM. Caddy can then manage a trusted certificate.
+The public deployment uses `app.locafleet.de`, whose DNS A record points to `20.240.135.196`. Caddy manages the trusted Let's Encrypt certificate and redirects HTTP to HTTPS.
 
 ## Infrastructure inventory
 
@@ -37,7 +37,8 @@ The current IP-only deployment is HTTP. HTTPS requires a domain whose DNS A reco
 - Region: `Sweden Central`.
 - Image: Ubuntu Server 24.04 LTS x64 Gen2.
 - Size: `Standard_B2ats_v2`, 2 vCPU, 4 GiB RAM.
-- Public IP at deployment: `20.240.135.196`.
+- Public IP: `20.240.135.196`.
+- Public hostname: `app.locafleet.de`.
 - Private IP: `172.16.0.4`.
 - SSH user: `azureuser`.
 - Local key: `%USERPROFILE%\\.ssh\\fleet-rebalancer-vm_key.pem`.
@@ -193,7 +194,7 @@ PG_WINDOW_HOURS=
 APP_DOMAIN=
 ```
 
-The frontend file contains `NEXT_PUBLIC_MAPBOX_TOKEN` and must remain outside Git. For the current IP-only HTTP deployment, the VM uses `APP_DOMAIN=http://20.240.135.196`. A real domain should replace it before enabling public HTTPS.
+The frontend file contains `NEXT_PUBLIC_MAPBOX_TOKEN` and must remain outside Git. The VM uses `APP_DOMAIN=app.locafleet.de`.
 
 The VM received image archives of approximately 920 MB and 71 MB. Delete them only after confirming the deployment and keeping any required rollback copy.
 
@@ -219,7 +220,6 @@ Use `docker image prune` only after confirming no rollback image is needed. Avoi
 - Restrict CORS from `*` to the actual frontend origin.
 - Restrict SSH NSG source to the administrator's current IP.
 - Add rate limiting for `/api/tick`.
-- Configure a domain and trusted HTTPS.
 - Rotate any credential exposed outside the VM.
 - Add Supabase metadata/plan backup or export instructions.
 - Add a documented shutdown schedule.
@@ -230,7 +230,7 @@ Use `docker image prune` only after confirming no rollback image is needed. Avoi
 
 ## Next-session checklist
 
-1. Read `CLAUDE.md`, `DEPLOYMENT_HANDOFF.md`, and this file.
+1. Read `CLAUDE.md`, `DEPLOYMENT_HANDOFF.md`, `REBOOT_CHECKPOINT.md`, and this file.
 2. Run `git status --short --branch`.
 3. Run the focused frontend build from `web/`.
 4. Commit and push the reviewed browser and planner fixes without secrets or archives.

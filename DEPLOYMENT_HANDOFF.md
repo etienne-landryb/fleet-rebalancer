@@ -7,7 +7,7 @@ The current authoritative deployment and maintenance record is [OPERATIONS_RUNBO
 Current production endpoint:
 
 ```text
-http://20.240.135.196
+https://app.locafleet.de
 ```
 
 Current infrastructure:
@@ -20,4 +20,4 @@ Current infrastructure:
 
 Before continuing, read `CLAUDE.md` and `OPERATIONS_RUNBOOK.md`. Never commit `.env`, `.env.local`, SSH keys, image archives, service-account JSON, or tokens.
 
-The Firefox `crypto.randomUUID()` compatibility fix and the large-network planner guard are included in the current source changes. Keep GitHub source and the deployed Azure images aligned after this commit.
+The Firefox session-ID fix, large-network planner guard, and image-based country flags are deployed. See `REBOOT_CHECKPOINT.md` for the exact post-reboot resume sequence. Keep GitHub source and Azure images aligned after each runtime change.
