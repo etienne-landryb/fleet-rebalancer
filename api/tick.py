@@ -3,7 +3,13 @@
 import logging
 import os
 
-from ._shared import build_response, error_response, get_compiled_graph, get_config
+from ._shared import (
+    build_response,
+    call_with_reconnect,
+    error_response,
+    get_compiled_graph,
+    get_config,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +40,7 @@ async def handle_tick(
     if constraints:
         initial_state["constraints"] = constraints
 
-    try:
+    def _run() -> tuple:
         for chunk in graph.stream(
             initial_state,
             config,
@@ -44,7 +50,10 @@ async def handle_tick(
                 logger.info("Node completed: %s", node_name)
 
         snapshot = graph.get_state(config)
-        state = snapshot.values
+        return snapshot, snapshot.values
+
+    try:
+        snapshot, state = call_with_reconnect(_run)
 
         if snapshot.next:
             return build_response(state, "approval")

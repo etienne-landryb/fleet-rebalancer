@@ -7,6 +7,7 @@ import re
 import sys
 import tempfile
 from contextlib import ExitStack
+from typing import Callable, TypeVar
 
 sys.path.insert(
     0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src")
@@ -38,15 +39,52 @@ _settings = get_settings()
 _checkpointer_stack = ExitStack()
 if _settings.supabase_db_url:
     from langgraph.checkpoint.postgres import PostgresSaver
+    from psycopg.rows import dict_row
+    from psycopg_pool import ConnectionPool
 
-    _checkpointer = _checkpointer_stack.enter_context(
-        PostgresSaver.from_conn_string(_settings.supabase_db_url)
+    # A single long-lived connection (the previous approach) goes stale once
+    # Supabase closes it server-side after a period of inactivity, and there
+    # is no way to detect or recover from that mid-process. A pool checks
+    # each connection out with a health probe and transparently recycles any
+    # connection that has died or aged past max_idle/max_lifetime.
+    _pool = ConnectionPool(
+        conninfo=_settings.supabase_db_url,
+        kwargs={
+            "autocommit": True,
+            "prepare_threshold": 0,
+            "row_factory": dict_row,
+        },
+        min_size=1,
+        max_size=5,
+        max_idle=120,
+        max_lifetime=1800,
+        check=ConnectionPool.check_connection,
     )
+    _checkpointer_stack.callback(_pool.close)
+    _checkpointer = PostgresSaver(_pool)
     _checkpointer.setup()
 else:
     _checkpointer = MemorySaver()
 
 _compiled = build_graph().compile(checkpointer=_checkpointer)
+
+_T = TypeVar("_T")
+
+
+def call_with_reconnect(fn: Callable[[], _T]) -> _T:
+    """Run fn(), retrying once if the pooled connection died mid-flight.
+
+    The pool health-checks connections on checkout, but a connection can
+    still be dropped by the server in the brief window between that check
+    and actual use. One retry covers that race without masking real errors.
+    """
+    try:
+        return fn()
+    except Exception as exc:
+        if "connection is closed" not in str(exc).lower():
+            raise
+        logger.warning("Retrying after stale checkpoint connection: %s", exc)
+        return fn()
 
 
 def get_config(thread_id: str = "operator-1"):

@@ -2,7 +2,13 @@
 
 import logging
 
-from ._shared import build_response, error_response, get_compiled_graph, get_config
+from ._shared import (
+    build_response,
+    call_with_reconnect,
+    error_response,
+    get_compiled_graph,
+    get_config,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +19,7 @@ async def handle_status(thread_id: str = "operator-1") -> dict:
     config = get_config(thread_id)
 
     try:
-        snapshot = graph.get_state(config)
+        snapshot = call_with_reconnect(lambda: graph.get_state(config))
         state = snapshot.values
 
         if not state:
