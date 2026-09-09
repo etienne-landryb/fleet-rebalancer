@@ -51,6 +51,8 @@ The VM has a public IP, Standard SSD OS disk, Basic NSG, no Azure Load Balancer,
 
 Supabase is the persistent external PostgreSQL service. It stores metadata, plans, and LangGraph checkpoint state. The API uses `PostgresSaver` when `SUPABASE_DB_URL` is configured and falls back to `MemorySaver` only when it is absent.
 
+`PostgresSaver` is backed by a `psycopg_pool.ConnectionPool` (`api/_shared.py`), not a single raw connection. Supabase closes idle connections server-side; the pool health-checks and recycles connections automatically (`max_idle=120s`, `max_lifetime=1800s`), so this no longer requires restarting the `api` container. If `the connection is closed` ever reappears in `api` logs, it self-heals on the next request via the pool plus a one-time retry in `call_with_reconnect` — no manual intervention needed.
+
 Previously verified LangGraph tables:
 
 ```text
