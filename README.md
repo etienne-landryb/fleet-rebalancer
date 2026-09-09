@@ -212,9 +212,9 @@ The persistence baseline is the reporting bar for forecasting. Forecast metrics 
 
 The current live deployment is:
 
-- Azure for Students subscription.
-- `fleet-rebalancer-vm` in the Sweden Central region.
-- Ubuntu 24.04 LTS x64, `Standard_B2ats_v2`, 2 vCPU and 4 GiB RAM.
+- Azure *******.
+- `fleet-rebalancer****` in the european region.
+- Ubuntu 24.04 LTS x64, `Standard_B***`, x vCPU and xx GiB RAM.
 - Docker Compose services: API, web, and Caddy.
 - Supabase PostgreSQL for durable state.
 - Public URL: `https://app.locafleet.de`.
@@ -251,4 +251,4 @@ MIT
 
 ## Author
 
-Etienne Landry-Bessala
+Etienne Landry, Bessala
