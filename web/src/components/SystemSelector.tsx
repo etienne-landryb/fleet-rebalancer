@@ -6,11 +6,17 @@ import type { ValidatedSystem } from "@/lib/validateSystems";
 import type { RegionFilter } from "@/hooks/useSystem";
 import { getRegion } from "@/hooks/useSystem";
 
-function getFlag(cc: string): string {
-  const normalized = cc.trim().toUpperCase();
-  if (!/^[A-Z]{2}$/.test(normalized)) return "\u{1F30D}";
-  return String.fromCodePoint(
-    ...normalized.split("").map((letter) => 0x1f1e6 + letter.charCodeAt(0) - 65),
+function Flag({ countryCode }: { countryCode: string }) {
+  const normalized = countryCode.trim().toLowerCase();
+  if (!/^[a-z]{2}$/.test(normalized)) return <span aria-hidden="true">🌍</span>;
+  return (
+    <img
+      src={`https://flagcdn.com/w20/${normalized}.png`}
+      alt={`${countryCode.toUpperCase()} flag`}
+      width={20}
+      height={14}
+      style={{ display: "inline-block", width: 20, height: 14, objectFit: "cover", verticalAlign: "-2px" }}
+    />
   );
 }
 
@@ -178,7 +184,7 @@ export default function SystemSelector({
           />
           <span style={{ color: "var(--text)", fontWeight: isSelected || pinned ? 600 : 400, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {pinned && <Star size={10} className="inline mr-1" style={{ color: "var(--amber)", verticalAlign: "-1px" }} />}
-            <span aria-hidden="true" style={{ marginRight: 6 }}>{getFlag(system.countryCode)}</span>
+            <span aria-hidden="true" style={{ marginRight: 6 }}><Flag countryCode={system.countryCode} /></span>
             {system.name}
           </span>
           {pinned && (
@@ -232,7 +238,7 @@ export default function SystemSelector({
           style={{ width: 6, height: 6, background: tierDot.color, boxShadow: `0 0 6px ${tierDot.color}` }}
         />
         <span style={{ color: "var(--text)", fontFamily: "var(--font-mono)", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {loading ? "Loading..." : `${getFlag(selected.countryCode)} ${selected.name}`}
+          {loading ? "Loading..." : <><span aria-hidden="true"><Flag countryCode={selected.countryCode} /></span>{` ${selected.name}`}</>}
         </span>
         <span style={{ color: "var(--text3)", fontSize: 11 }}>
           {selected.location ? `· ${selected.location}` : ""}
@@ -352,7 +358,7 @@ export default function SystemSelector({
                     color: "var(--text3)",
                   }}
                 >
-                  {getFlag(cc)} {cc}
+                  <Flag countryCode={cc} /> {cc}
                 </div>
                 {items.map((system) => renderSystemButton(system, false))}
               </div>

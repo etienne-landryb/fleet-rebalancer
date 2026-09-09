@@ -1,186 +1,249 @@
 # Fleet Rebalancer
 
-A LangGraph-based predictive-prescriptive system thar keeps shared-mobility networks balanced.
-It forecasts which stations will run empty or full, plans van repositioning
-routes to close the gap, and surfaces the plan to a human operator for approval
-through a real-time operations console.
+Fleet Rebalancer is a predictive-prescriptive operations console for shared-mobility networks. It reads live GBFS station feeds, forecasts near-term station demand, identifies stations likely to become empty or full, plans capacitated van repositioning routes, estimates the result against a do-nothing baseline, and pauses for human approval before dispatch.
 
-<img width="960" height="452" alt="image" src="https://github.com/user-attachments/assets/40a1782c-f3e8-48c6-a118-ebeb61896cb6" />
-Built on live Citi Bike NYC data (~2,500 docked stations), with historical
-training data from BigQuery's 30M+ trip archive. Supports any GBFS-compatible
-system via the MobilityData catalog (~900 networks worldwide).
+## Live Demo
 
-## How it works
+**Reviewer URL:** [https://app.locafleet.de](https://app.locafleet.de)
 
-A LangGraph state machine orchestrates the full decision loop every tick:
+The live demo is deployed on an Azure for Students Ubuntu VM. It runs the Next.js console, FastAPI/LangGraph backend, and Caddy reverse proxy in Docker Compose. HTTPS is provided by Caddy with an automatically managed Let's Encrypt certificate.
 
+The demo is an interactive portfolio system, not a production fleet-control service. Its projected impact is a simulation based on live station state and stated solver assumptions. It does not claim to measure realized rider wait times, real-world trip savings, or superiority over commercial tools.
+
+## What It Demonstrates
+
+- Live GBFS ingestion for Citi Bike NYC and other catalogued systems.
+- A deterministic LangGraph decision loop with conditional branching and a human approval gate.
+- XGBoost demand forecasting for Citi Bike NYC, with persistence-baseline forecasting for other systems.
+- OR-Tools capacitated vehicle-routing plans with configurable van count, capacity, and shift budget.
+- A single Groq explanation call for an action tick, with a deterministic fallback when Groq is unavailable.
+- Persistent LangGraph checkpoints and dispatched plan metadata in Supabase PostgreSQL.
+- A browser-based operator console with station risk map, KPIs, route overlays, projected impact, work orders, trace, and plan history.
+
+## Decision Loop
+
+```text
+ingest -> forecast -> assess_imbalance
+                           |
+                 trigger=false -> END
+                           |
+                 trigger=true -> plan -> evaluate_plan
+                                      |              |
+                         feasible/improving     infeasible
+                                      |              |
+                                  explain       relax_constraints
+                                      |              |
+                              human_approval <- plan
+                                |       |
+                         approved       rejected
+                                |       |
+                            dispatch    END
 ```
-ingest ─► forecast ─► assess_imbalance
-                          │
-                    trigger=false ──► END (idle, 0 LLM calls)
-                          │
-                    trigger=true ──► plan ─► evaluate_plan
-                                               │
-                                      feasible ──► explain ─► human_approval
-                                               │                  │
-                                      infeasible ──► relax ──► plan (loop)
-                                                          │
-                                                   approved ──► dispatch ──► END
-                                                   rejected ──► END
-```
 
-- **ingest** — polls GBFS `station_status` and `station_information` for live
-  fill levels across all stations.
-- **forecast** — XGBoost model predicts per-station demand at a configurable
-  horizon (default 45 min). Trained on BigQuery historical trip data with
-  temporal train/test split. Evaluated against persistence and seasonal-naive
-  baselines. Falls back to persistence baseline for systems without a trained
-  model.
-- **assess_imbalance** — risk-scores each station by predicted fill level
-  (starving ≤15%, saturated ≥85%). If the aggregate imbalance exceeds the
-  threshold (default 30%), the tick triggers planning. Reports distinct idle
-  reasons: healthy network, system-wide shortage, system-wide surplus, or
-  below-threshold balance.
-- **plan** — OR-Tools capacitated VRP maps surplus/deficit stations to van
-  pickup/dropoff routes, respecting van capacity, fleet size, and shift budget.
-  Operator-configurable constraints (van count, capacity, shift duration) flow
-  from the UI into the solver.
-- **evaluate_plan** — simulates network health improvement under a do-nothing
-  counterfactual. If infeasible, the graph loops through `relax_constraints`
-  (adds a van, extends shift budget) up to `MAX_REPLAN` times.
-- **explain** — the single LLM call (Groq). Writes natural-language driver work
-  orders from the plan. Falls back to a deterministic template if the LLM is
-  unavailable. An idle tick makes zero LLM calls; a triggered tick makes
-  exactly one.
-- **human_approval** — the graph pauses via `interrupt()`. The operator console
-  surfaces the plan with before/after KPIs. Approve dispatches the plan to
-  Supabase; reject logs and ends.
+The control flow is deterministic Python. The LLM does not choose branches, approve plans, or control the optimizer.
 
-All routing decisions use deterministic conditional edges (plain Python
-predicates). The LLM never makes a control-flow decision.
-<img width="959" height="448" alt="image" src="https://github.com/user-attachments/assets/3ef8687c-3b7a-434c-921c-fc564ef012b5" />
+### Graph nodes
 
-## Operator console
+- **ingest**: fetches `station_information` and `station_status` from the selected GBFS discovery URL.
+- **forecast**: predicts station-level bikes at the configured horizon. The checked-in XGBoost model is used for Citi Bike NYC; other systems use persistence.
+- **assess_imbalance**: classifies stations as starving at 15% fill or below and saturated at 85% fill or above.
+- **plan**: solves a capacitated repositioning problem with OR-Tools.
+- **evaluate_plan**: compares the proposed result with a do-nothing simulation.
+- **relax_constraints**: increases van count and shift budget within the configured re-plan limit.
+- **explain**: writes the operator-facing work order. This is the only LLM node.
+- **human_approval**: pauses the graph through LangGraph `interrupt()`.
+- **dispatch**: persists an approved plan to Supabase.
 
-A Next.js application served alongside a FastAPI backend, designed as a
-precision operations console — glassmorphism UI with dark/light/system themes,
-monospaced data values, responsive layout.
+For very large systems, the planner bounds the active routing set at 500 high-priority surplus/deficit stations to avoid quadratic distance-matrix growth on small compute instances. Lower-priority stations are reported as unserved rather than silently treated as planned.
 
-| Panel | What it shows |
-|-------|---------------|
-| **KPI strip** | Network health %, starving/saturated station counts, data freshness |
-| **Controls bar** | Van count (1–10), capacity (5–50), shift budget (60–240 min) steppers; scheduled auto-analysis (off/1h/2h/4h) |
-| **Journey bar** | 7-step pipeline with animated node states (pending → running → done) |
-| **Station health map** | Mapbox GL — stations colored by risk (starving/healthy/saturated), van routes overlaid with distinct per-van colors, interactive popups |
-| **Plan panel** | Impact assessment (before/after health, starving, saturated), van route details, driver work orders, approve/reject buttons |
-| **Decision trace** | Collapsible accordion showing which graph nodes fired, LLM call count, re-plan count |
-| **At-risk stations** | Collapsible chart of top 15 stations by fill level with risk indicators |
-| **History** | Collapsible table of last 10 approved plans from Supabase (timestamp, system, health delta, bikes moved, vans, status) |
+## Operator Console
 
-The system selector supports any GBFS-compatible network. Citi Bike NYC is
-pinned as the recommended default (ML model active). Other systems use a
-persistence-baseline forecast.
+The Next.js console provides:
+
+| Panel | Function |
+| --- | --- |
+| KPI strip | Network health, starving/saturated counts, and data freshness |
+| Controls | Van count, van capacity, shift budget, and scheduled analysis |
+| Journey bar | Monitor, detect risk, forecast, plan, compare, approve, dispatch |
+| Station map | Mapbox station health, filters, popups, and van routes |
+| Plan panel | Before/after impact, route stops, work order, approve/reject |
+| Decision trace | Fired nodes, branch history, LLM calls, and re-plan count |
+| At-risk stations | Highest-risk stations and fill-level visualization |
+| History | Previously approved plans loaded from Supabase |
+
+The system selector uses the MobilityData GBFS catalog. Citi Bike NYC is the recommended demonstration system because the repository includes a trained model for it. Systems without a trained model use the persistence baseline. Very large networks may complete with unserved stations because the route planner applies an active-node limit.
 
 ## Architecture
 
+```text
+Browser
+  |
+  | HTTPS https://app.locafleet.de
+  v
+Caddy :80/:443
+  |-- /api/* -> FastAPI :8000
+  `-- /*     -> Next.js :3000
+
+FastAPI/LangGraph
+  |-- GBFS live feeds
+  |-- Supabase PostgreSQL
+  |-- Groq explanation call
+  `-- optional BigQuery access for training workflows
 ```
+
+The API and web ports are internal Docker ports. Caddy is the only public application entry point.
+
+## Repository Layout
+
+```text
 src/rebalancer/
-├── agents/          # LangGraph graph, state, nodes, edges
-├── data/            # GBFS client, BigQuery client, Supabase client
-├── ml/              # XGBoost forecaster, baselines, features, SHAP
-├── optim/           # OR-Tools capacitated VRP planner
-└── llm/             # Groq client with deterministic fallback
+├── agents/          # LangGraph state, graph, nodes, and edges
+├── data/            # GBFS, BigQuery, Supabase, and weather clients
+├── ml/              # features, baselines, XGBoost forecaster, SHAP
+├── optim/           # OR-Tools planner and impact simulation
+└── llm/             # Groq client and deterministic fallback
 
-api/
-├── tick.py          # Graph tick handler with constraint passthrough
-├── approve.py       # Resume graph with approved decision
-├── reject.py        # Resume graph with rejected decision
-├── status.py        # Current graph state from checkpointer
-└── _shared.py       # Response builder (KPIs, trace enrichment, idle reasons)
-
-web/
-├── src/app/page.tsx         # Layout orchestration, state management
-├── src/components/          # 10 React components (Header, MapView, PlanPanel, etc.)
-├── src/hooks/               # 5 custom hooks (useGbfs, useTick, useSystem, etc.)
-└── src/lib/                 # API client, TypeScript types
+api/                 # FastAPI deployment bridge
+web/                 # Next.js operator console
+scripts/             # training, GBFS, BigQuery, and local-server scripts
+tests/               # unit and integration-oriented tests
+models/              # checked-in inference artifact and generated metrics
 ```
 
-Every major subsystem sits behind an interface (`Forecaster`, `Planner`,
-`DataClient`, `LLMClient`) so any one can be swapped without touching the graph.
+Operational deployment and maintenance details are documented in [OPERATIONS_RUNBOOK.md](OPERATIONS_RUNBOOK.md). The short deployment checkpoint is in [DEPLOYMENT_HANDOFF.md](DEPLOYMENT_HANDOFF.md).
 
-## Stack
+## Technology Stack
 
-| Layer | Tool |
-|-------|------|
-| Orchestration | LangGraph (StateGraph, interrupt, conditional edges, Postgres checkpointer) |
-| ML | XGBoost (demand forecasting), SHAP (explainability) |
-| Optimization | OR-Tools (capacitated VRP) |
-| LLM | Groq free tier — one call per action tick, zero per idle tick |
-| Live data | GBFS (Citi Bike NYC + any GBFS system via MobilityData catalog) |
-| Historical data | BigQuery public datasets (citibike_trips, citibike_stations, NOAA weather) |
-| Persistence | Supabase Postgres (station metadata + plans, kilobytes only) |
-| Backend API | FastAPI with CORS middleware |
-| Frontend | Next.js 15, React 19, Mapbox GL, Tailwind CSS |
-| Maps | Mapbox GL JS (dark/light/navigation basemaps, Directions API for route geometry) |
-| CI | GitHub Actions (lint + 58 tests on push, Supabase keepalive cron) |
+| Layer | Technology |
+| --- | --- |
+| Orchestration | LangGraph with StateGraph, conditional edges, interrupt, and Postgres checkpointer |
+| Backend | FastAPI, Uvicorn, Python 3.11 |
+| Forecasting | XGBoost, scikit-learn baselines, SHAP |
+| Optimization | OR-Tools capacitated vehicle routing |
+| Explanation | Groq, one call per action tick at most |
+| Live data | GBFS station information and station status feeds |
+| Historical data | BigQuery public Citi Bike and NOAA datasets |
+| Persistence | Supabase PostgreSQL for metadata, plans, and checkpoints |
+| Frontend | Next.js 16, React 19, TypeScript |
+| Maps | Mapbox GL and Directions API for route geometry |
+| Proxy/TLS | Caddy 2 with automatic HTTPS |
+| Packaging | Docker Compose |
+| CI | GitHub Actions with Ruff, isort, Black, and pytest |
 
-100% free-tier / open-source. No paid APIs, no paid infra.
+## Local Development
 
-## Quick start
+### Requirements
 
-```bash
-# 1. Create environment
+- Windows with Anaconda Prompt, or a compatible Python environment.
+- Python 3.11 environment from `environment.yml`.
+- Node.js 22 for the web console.
+- Docker Desktop if running the complete Compose stack.
+
+### Python setup
+
+From Anaconda Prompt:
+
+```cmd
 conda env create -f environment.yml
 conda activate rebalancer
+```
 
-# 2. Configure credentials
-cp .env.example .env
-# Fill in: SUPABASE_URL, SUPABASE_KEY, GROQ_API_KEY
-# BigQuery: set GOOGLE_APPLICATION_CREDENTIALS or run `gcloud auth application-default login`
-# Mapbox: set NEXT_PUBLIC_MAPBOX_TOKEN in web/.env.local
+Copy `.env.example` to `.env` and fill only the credentials needed for the selected workflow. Never commit `.env`.
 
-# 3. Run tests
-pytest
+The frontend map token belongs in `web/.env.local`:
 
-# 4. Train the forecaster (queries BigQuery — takes a few minutes)
-python scripts/train_model.py
+```env
+NEXT_PUBLIC_MAPBOX_TOKEN=your_public_mapbox_token
+```
 
-# 5. Start the API server
+This token is browser-visible and should be restricted by allowed URLs in Mapbox.
+
+### Tests and lint
+
+```cmd
+pytest -q
+ruff check src/ tests/
+isort --check-only src/ tests/
+black --check src/ tests/
+```
+
+### Run the development services
+
+Start the API from the repository root:
+
+```cmd
 python scripts/local_server.py
+```
 
-# 6. Start the operator console (in a second terminal)
+In a second Anaconda Prompt:
+
+```cmd
 cd web
 npm install
 npm run dev
 ```
 
-Open `http://localhost:3000`. Press **Run Analysis** to ingest live data, run
-the full graph, and see the plan. Adjust van count, capacity, and shift budget
-in the controls bar. Approve or reject from the plan panel.
+Open `http://localhost:3000`.
 
-## Data strategy
+### Local Docker Compose
 
-No heavy storage. Historical training data lives in BigQuery public datasets
-(free, already there). Live station state is polled from GBFS into memory.
-Supabase stores only station metadata and dispatched plans — well under 1 MB.
+```cmd
+docker compose config --quiet
+docker compose build
+docker compose up -d
+docker compose ps
+```
 
-| Layer | Source | Cost |
-|-------|--------|------|
-| Historical (training) | BigQuery: `citibike_trips` (30M+ trips), `citibike_stations`, `noaa_gsod` | Free (1 TB/month sandbox) |
-| Live (inference) | GBFS `station_status.json` polled every tick | Free, public JSON |
-| Persistence | Supabase Postgres: `stations` + `plans` tables | Free tier |
+The local Compose entry point is Caddy on port 80. API and web containers are internal.
 
-## Honesty
+## Data and Persistence
 
-This is a portfolio-grade reference implementation, not a production deployment.
-All claimed metrics name their baseline and data window:
+The project deliberately avoids a heavy snapshot warehouse:
 
-- Forecaster accuracy is reported against persistence and seasonal-naive
-  baselines on a temporal train/test split from BigQuery trip data.
-- Solver feasibility and network health improvement are measured against a
-  stated do-nothing counterfactual.
-- No claims are made about realized rider wait times, real-world trip savings,
-  or superiority over commercial tools.
+| Layer | Source | Purpose |
+| --- | --- | --- |
+| Historical training | BigQuery public datasets | Trip aggregates, station metadata, optional weather |
+| Live inference | GBFS JSON feeds | Current station fill and availability |
+| Persistent application state | Supabase PostgreSQL | Station metadata, plans, and LangGraph checkpoints |
+
+The persistence baseline is the reporting bar for forecasting. Forecast metrics should identify the temporal train/test window and compare the model against persistence and seasonal-naive baselines. Solver results are simulations against a stated do-nothing counterfactual.
+
+## Deployment
+
+The current live deployment is:
+
+- Azure for Students subscription.
+- `fleet-rebalancer-vm` in the Sweden Central region.
+- Ubuntu 24.04 LTS x64, `Standard_B2ats_v2`, 2 vCPU and 4 GiB RAM.
+- Docker Compose services: API, web, and Caddy.
+- Supabase PostgreSQL for durable state.
+- Public URL: `https://app.locafleet.de`.
+
+The Azure student credit was close to exhausted during deployment. The VM is a demo host, not an unlimited free production platform. Configure cost alerts and deallocate the VM when it is not needed.
+
+Because the Azure VM is small, build images locally and transfer them when a dependency-heavy image changes. Avoid rebuilding the API remotely unless there is sufficient resource and credit headroom. Follow [OPERATIONS_RUNBOOK.md](OPERATIONS_RUNBOOK.md) for the exact SSH, image transfer, restart, cleanup, and verification commands.
+
+## Security and Public Demo Scope
+
+HTTPS protects traffic between reviewers and the application. Before unrestricted public promotion, the deployment should also add:
+
+- API authentication or a protected reviewer/demo token.
+- Rate limiting for `/api/tick`.
+- CORS restricted to `https://app.locafleet.de`.
+- SSH access restricted to the administrator's current IP.
+- A documented shutdown and cost-alert procedure.
+- Backup/export guidance for Supabase plans and metadata.
+
+Until those controls are in place, treat the live URL as a controlled reviewer demo. Do not submit real operational data, credentials, or sensitive rider information.
+
+## Honest Scope
+
+This is a portfolio-grade reference implementation of the fleet-repositioning pattern.
+
+- Forecast accuracy is evaluated against explicit baselines on temporal data splits.
+- Route feasibility and projected health changes are simulated, not measured in production operations.
+- A large network may return a valid approval state with unserved stations because of the planner's bounded active set.
+- The system does not claim realized wait-time reduction, guaranteed rider savings, or superiority over commercial fleet-management tools.
 
 ## License
 
