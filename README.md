@@ -1,6 +1,7 @@
 # Fleet Rebalancer
 
 Fleet Rebalancer is a predictive-prescriptive operations console for shared-mobility networks. It reads live GBFS station feeds, forecasts near-term station demand, identifies stations likely to become empty or full, plans capacitated van repositioning routes, estimates the result against a do-nothing baseline, and pauses for human approval before dispatch.
+<img width="960" height="450" alt="01 SPHERE" src="https://github.com/user-attachments/assets/3632b2e9-7f15-4726-abc9-22db0080520e" />
 
 ## Live Demo
 
@@ -9,6 +10,7 @@ Fleet Rebalancer is a predictive-prescriptive operations console for shared-mobi
 The live demo is deployed on an Azure for Students Ubuntu VM. It runs the Next.js console, FastAPI/LangGraph backend, and Caddy reverse proxy in Docker Compose. HTTPS is provided by Caddy with an automatically managed Let's Encrypt certificate.
 
 The demo is an interactive portfolio system, not a production fleet-control service. Its projected impact is a simulation based on live station state and stated solver assumptions. It does not claim to measure realized rider wait times, real-world trip savings, or superiority over commercial tools.
+<img width="957" height="451" alt="01 SPHERE - DARK" src="https://github.com/user-attachments/assets/4950db88-4843-46ad-9304-9e4d45c897e3" />
 
 ## What It Demonstrates
 
@@ -19,6 +21,10 @@ The demo is an interactive portfolio system, not a production fleet-control serv
 - A single Groq explanation call for an action tick, with a deterministic fallback when Groq is unavailable.
 - Persistent LangGraph checkpoints and dispatched plan metadata in Supabase PostgreSQL.
 - A browser-based operator console with station risk map, KPIs, route overlays, projected impact, work orders, trace, and plan history.
+<img width="960" height="452" alt="02 CITY BIKE - ANTE ANALYSIS" src="https://github.com/user-attachments/assets/c11ded99-42f8-40a9-b3b2-4fe43e5ea0e8" />
+<img width="960" height="451" alt="03 CITY BIKE - POST ANALYSIS" src="https://github.com/user-attachments/assets/700b3593-a35c-4945-9791-ce8a76edb8a3" />
+<img width="960" height="454" alt="05 CITY BIKE - SYS SELECTOR" src="https://github.com/user-attachments/assets/11d97d43-b1dd-423e-af8a-847ec74841e2" />
+<img width="959" height="454" alt="08 MOBI CA - POST" src="https://github.com/user-attachments/assets/11e5f4ae-134c-47d5-bc59-79ddc62f0a4b" />
 
 ## Decision Loop
 
