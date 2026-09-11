@@ -1,5 +1,6 @@
 import logging
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any
 
 import requests
@@ -30,6 +31,27 @@ class StationStatus:
     is_renting: bool
     is_returning: bool
     last_reported: int
+
+
+def _parse_last_reported(value: Any) -> int:
+    """Normalize last_reported to Unix epoch seconds.
+
+    GBFS v1/v2 defines this field as an integer epoch timestamp, but GBFS
+    v3.0 redefined it as an ISO 8601 string. Accept both so systems on
+    either spec version don't have every station row rejected.
+    """
+    if isinstance(value, (int, float)):
+        return int(value)
+    if isinstance(value, str):
+        try:
+            return int(value)
+        except ValueError:
+            pass
+        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return int(dt.timestamp())
+    raise ValueError(f"Unparseable last_reported value: {value!r}")
 
 
 class GBFSClient:
@@ -119,7 +141,7 @@ class GBFSClient:
                     num_docks_available=int(raw.get("num_docks_available", 0)),
                     is_renting=bool(raw.get("is_renting", False)),
                     is_returning=bool(raw.get("is_returning", False)),
-                    last_reported=int(raw.get("last_reported", 0)),
+                    last_reported=_parse_last_reported(raw.get("last_reported", 0)),
                 )
                 statuses.append(status)
             except (KeyError, ValueError, TypeError) as exc:

@@ -154,6 +154,31 @@ class TestFetchStationStatus:
         assert len(statuses) == 1
         assert statuses[0].station_id == "1"
 
+    @patch("rebalancer.data.gbfs_client.requests.get")
+    def test_parses_gbfs_v3_iso8601_last_reported(self, mock_get):
+        mock_get.side_effect = [
+            _mock_response(FIXTURES / "sample_discovery.json"),
+            _mock_response(
+                data={
+                    "data": {
+                        "stations": [
+                            {
+                                "station_id": "1",
+                                "num_bikes_available": 5,
+                                "num_docks_available": 15,
+                                "last_reported": "2026-09-11T08:53:20.129Z",
+                            }
+                        ]
+                    }
+                }
+            ),
+        ]
+        client = GBFSClient("https://example.com/gbfs.json", "test")
+        statuses = client.fetch_station_status()
+
+        assert len(statuses) == 1
+        assert statuses[0].last_reported > 0
+
 
 class TestAutoDiscover:
     @patch("rebalancer.data.gbfs_client.requests.get")
